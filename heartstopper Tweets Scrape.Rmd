@@ -1,0 +1,55 @@
+---
+title: "911 on Fox"
+author: "Lissie Bates-Haus"
+date: "5/4/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warnings = FALSE, message=FALSE}
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+
+# load libraries
+library(tidytext)
+library(plyr)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+
+```
+
+Heartstopper Tweets Scraped Sunday May 15
+
+```{r}
+
+setwd("~/DACCS R/Text as Data/911Fox Project")
+
+# COLLECT TWEETS
+#token is for rtweet
+#scraping for netflix show heartstopper
+
+mytoken <- create_token(
+  app = "TaD TSwift Project", #app name here
+  consumer_key = "jsmZktV4NSA8mPKv2V3ltwrW3", #consumer key here
+  consumer_secret = "rEFDgrLdul03szTPZjJLAhvfzc29ywhmukp3KlSaLIsQhXuGGm", #consumer secret here
+  access_token = "1179567891873763330-LfrnHKrJvSsNkGQHMCbFQPyISjAdR7", #access token here
+  access_secret = "eW6riAMQQEQtdK7VryAqpYmuLXRFvgBQG6KxPno3WdmKB") #access secret here
+
+heartstopperTweets <- search_tweets("#heartstopper", n = 10000, token=mytoken, include_rts = FALSE, lang = "en") 
+
+write_as_csv(heartstopperTweets ,"heartstopperTweets")
+
+```
+
+tweets collected.
+
+

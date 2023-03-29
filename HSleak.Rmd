@@ -1,0 +1,265 @@
+---
+title: "911 5b-14 TAKE 1"
+description: |
+  Practice in scraping tweets and making a word cloud using Tweets about 911 on Fox.
+author:
+  - name: Lissie Bates-Haus, Ph.D. 
+    url: https://github.com/lbateshaus
+    affiliation: U Mass Amherst DACSS MS Student
+    affiliation_url: https://www.umass.edu/sbs/data-analytics-and-computational-social-science-program/ms
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/DACCS R/Text as Data/911Fox Project")
+```
+
+Load Libraries:
+
+```{r warning=FALSE}
+
+#all necessary libraries here
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(tidytext)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+library(dplyr)
+
+#Copied over the whole doc from 5b-12
+```
+
+Please note: this code is almost entirely from my project [911 5b-12 TAKE 4](https://rpubs.com/lbateshaus/889197). New code will be cited as necessary.
+
+## Harry Styles ALbum Leak Tweets - search on "Harry's House"
+
+Load tweets from where I scraped them earlier:
+
+```{r warning=FALSE}
+setwd("~/DACCS R/Text as Data/911Fox Project")
+#Already scraped tweets so just loading in the csv
+
+HStweets <- read_csv("HarryStylesLeak.csv")
+head(HStweets)
+
+```
+
+### Explore Common Words
+
+```{r}
+
+tweetWords <- HStweets %>%
+  dplyr::select(text) %>%
+  unnest_tokens(word, text)
+
+head(tweetWords)
+
+```
+Plot the top 30 words:
+
+```{r}
+
+# plot the top 30 words
+tweetWords %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+
+```
+### Deal with Stop Words
+
+A majority of these seem to be stop words, so let's fix that!
+
+```{r}
+
+data("stop_words")
+# how many words do you have including the stop words?
+nrow(tweetWords)
+
+tweetsClean <- tweetWords %>%
+  anti_join(stop_words) %>%
+  filter(!word == "rt")
+
+# how many words after removing the stop words?
+nrow(tweetsClean)
+
+```
+
+Replot top 30
+
+```{r}
+
+# plot the top 30 words
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+```
+I still want to get things like https and t.co out of here:
+
+```{r}
+#this gets https out I think
+
+nrow(tweetsClean)
+# cleanup
+tweetsClean <- HStweets %>%
+  mutate(text = gsub("\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)", 
+                           "", text)) %>% 
+    dplyr::select(text) %>%
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words) %>%
+  filter(!word == "rt") # remove all rows that contain "rt" or retweet
+nrow(tweetsClean)
+
+```
+
+Replot top 30
+
+```{r}
+
+# plot the top 30 words -- notice any issues?
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets, ")
+
+```
+
+What I figured out from my last project is that I have an encoding problem here, which is why I'm still getting words that aren't meaningful. While it's probably not the correct way to manage this, I'm going to write my top 80 words to a csv, pull it up in excel and take a look at it there. Like I said, probably not ideal, but this will give me 60 words for my wordcloud.
+
+
+```{r}
+
+setwd("~/DACCS R/Text as Data/911Fox Project")
+#Put the top 80 words into its own dataframe?
+
+HSleak80 <- tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(80) %>%
+  mutate(word = reorder(word, n))
+
+head(HSleak80)
+
+write_as_csv(HSleak80,"HSleak80.csv")
+
+```
+
+
+From here, I'll go to excel and clean it up! Note: this is the qualitative part of the analysis
+
+Data Cleaning in HStop80:
+
+Deleted:
+1
+2
+3
+20th
+amp
+bc (meaning because)
+can‚Äôt
+don‚Äôt
+he‚Äôs
+i‚Äôm
+im
+it‚Äôs
+that‚Äôs
+y‚Äôall
+
+Combine:
+harry's / harry‚Äôs / house -> harry's house
+leak / leaked / leaks -> leak
+fine / line -> fine line
+listen / listened / listening -> listen
+song / songs -> songs
+y‚Äôall -> y'all
+harry / harry_styles / harrystyles / styles -> harry styles
+release / released -> release
+
+
+Some of these look to me like they would have been removed with stop words if they'd been encoded correctly.
+
+```{r}
+
+HSleak58 <- read_csv("HSleak58.csv")
+head(HSleak58)
+
+```
+
+
+Finally, word cloud???
+
+Plot Top 58
+
+```{r}
+
+library(wordcloud2)
+wordcloud2(data=HSleak58, color = "random-dark")
+
+```
+
+I'm going to consolidate all the Harry and styles to one I think that the number is so much bigger than everything else is making it wonky. So I'm going to lower that from 15158 to 1500 (still the highest count but more proportional)
+
+Brief attempt to change the colors:
+
+```{r}
+# or a vector of colors. vector must be same length than input data
+wordcloud2(HSleak58, color=rep_len( c("mediumblue","darkorchid", "seagreen", "firebrick", "deeppink", "goldenrod", "forestgreen"), nrow(HSleak58) ))
+```
+I don't love how this looks - maybe because there's such a huge discrepancy with the counts?
+
+dropped top count from 19817 to 2500
+
+And now to export it as a png!
+
+```{r}
+# install webshot
+library(webshot)
+webshot::install_phantomjs()
+
+# Make the graph
+my_graph <- wordcloud2(HSleak58, color=rep_len( c("mediumblue","darkorchid", "seagreen", "firebrick", "deeppink", "goldenrod"), nrow(HSleak58) ) )
+
+my_graph
+
+# save it in html
+library("htmlwidgets")
+saveWidget(my_graph,"tmp.html",selfcontained = F)
+
+# and in png or pdf
+webshot("tmp.html","HSwordcloud3.png", delay =5, vwidth = 800, vheight=400)
+
+```

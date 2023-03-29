@@ -1,0 +1,273 @@
+---
+title: "911 on Fox"
+author: "Lissie Bates-Haus"
+date: "3/29/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+#all necessary libraries here
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(tidytext)
+library(plyr)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+```
+
+911 on Fox Tweets
+
+```{r}
+
+# COLLECT TWEETS
+#token is for rtweet
+#First run - practice getting tweets that mention taylorswift by username
+#mytoken <- create_token(
+#  app = "TaD TSwift Project", #app name here
+#  consumer_key = "jsmZktV4NSA8mPKv2V3ltwrW3", #consumer key here
+#  consumer_secret = "rEFDgrLdul03szTPZjJLAhvfzc29ywhmukp3KlSaLIsQhXuGGm", #consumer secret here
+#  access_token = "1179567891873763330-LfrnHKrJvSsNkGQHMCbFQPyISjAdR7", #access token here
+#  access_secret = "eW6riAMQQEQtdK7VryAqpYmuLXRFvgBQG6KxPno3WdmKB") #access secret here
+
+#tweets5b12 <- search_tweets("#911onFox", n = 10000, token=mytoken, include_rts = FALSE, lang = "en") 
+
+#write_as_csv(tweets5b12,"tweets5b12.csv")
+
+
+#Already scraped tweets so just loading nteh csv
+
+tweets5b12 <- read_csv("tweets5b12.csv")
+head(tweets5b12)
+
+```
+
+tweets collected.
+
+## Separate the Data into only post-5b 12 tweets.
+
+
+```{r}
+
+#copy over tweet df to a working df
+
+post5b12tweets <- tweets5b12
+```
+
+From a little googling, I can see that the Twitter API returns a created-at timestamp in Greenwich Mean Time, which is 4 hours later than my local time, which means I'm looking for tweets after 12 midnight 3/29.2022 (8 pm DST in my timezone).
+
+I used the code provided by [earthdatasciene.org](https://www.earthdatascience.org/courses/earth-analytics/get-data-using-apis/text-mine-colorado-flood-tweets-science-r/) (probably not their intended application but oh well!)
+
+```{r}
+#format = "%Y-%m-%d %H:%M:%s"
+# show start date march 29 12 midnight Greenwich Mean Time
+start_date <- as.POSIXct('2022-03-29 00:00:00', tz="UTC")
+
+post5b12tweets <- post5b12tweets %>% filter(created_at >= start_date)
+
+```
+
+So I've filtered down from 9997 to 4652 tweets.
+
+Explore common words
+
+```{r}
+# get a list of words
+words5b12 <-  post5b12tweets %>%
+  dplyr::select(text) %>%
+  unnest_tokens(word, text)
+
+head(words5b12)
+
+```
+
+Plot 15 most common words:
+
+```{r}
+# plot the top 15 words
+words5b12 %>%
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+```
+Too many stop words! Let's remove them.
+
+```{r}
+
+data("stop_words")
+# how many words do you have including the stop words?
+nrow(words5b12)
+## [1] 151536
+
+words5b12clean <- words5b12 %>%
+  anti_join(stop_words) %>%
+  filter(!word == "rt")
+
+# how many words after removing the stop words?
+nrow(words5b12clean)
+## [1] 95740
+
+```
+
+So we went from 151536 to 95740 words.
+
+Let's replot our top 15 words:
+
+```{r}
+# plot the top 15 words -- notice any issues?
+words5b12clean %>%
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+```
+Now we'll remove the links and rerun all the cleanup.
+
+```{r}
+
+# cleanup
+words5b12clean <- post5b12tweets %>%
+  mutate(text = gsub("\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)", 
+                           "", text)) %>% 
+  filter(created_at >= start_date ) %>% 
+  dplyr::select(text) %>%
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words) %>%
+  filter(!word == "rt") # remove all rows that contain "rt" or retweet
+
+# how many words after removing the stop words?
+nrow(words5b12clean)
+```
+
+Now we'll replot our top 15 words, see what we've got.
+
+```{r}
+# plot the top 15 words -- notice any issues?
+words5b12clean %>%
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+```
+Clearly some of these need to be paired words.
+
+```{r}
+#cleaning data and creating dataframe for paired words
+
+mywords <- "9110nfox"
+
+words5b12paired <- post5b12tweets %>%
+  dplyr::select(text) %>%
+  mutate(text = removeWords(text, stop_words$word)) %>%
+     mutate(text = removeWords(text, mywords)) %>%
+  mutate(text = gsub("\\brt\\b|\\bRT\\b", "", text)) %>%
+  mutate(text = gsub("http://*", "", text)) %>%
+   mutate(text = gsub("https://*", "", text)) %>%
+  unnest_tokens(paired_words, text, token = "ngrams", n = 2)
+
+words5b12paired %>%
+  count(paired_words, sort = TRUE)
+
+#based on the first run of this, I'm going to add in https:// and 911onfox to my removal list
+#huh my removewords isn't work - going to try something else
+
+```
+Okay I'm going to go back to my single word stuff and see if I can get 911onfox out from there
+
+```{r}
+
+mywords <- c("911onFox", "episode", "911onfox")
+nrow(words5b12clean)
+# cleanup
+words5b12clean <- post5b12tweets %>%
+  mutate(text = gsub("\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)", 
+                           "", text)) %>%
+  
+    mutate(text = removeWords(text, mywords)) %>%
+  filter(created_at >= start_date ) %>% 
+  dplyr::select(text) %>%
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words) %>%
+  filter(!word == "rt") # remove all rows that contain "rt" or retweet
+
+# how many words after removing the stop words?
+nrow(words5b12clean)
+
+```
+
+Check first 15:
+
+```{r}
+# plot the top 15 words -- notice any issues?
+words5b12clean %>%
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+```
+Okay I'm stuck on how to get that out of there, so I'll move on to a wordcloud!
+
+Hmm, maybe I need to remove numbers too? What happens if I make it a corpus?
+
+```{r}
+
+corpus5b12 <- corpus(as.character(words5b12clean))
+myTokens <- tokens(corpus5b12, remove_punct = TRUE, remove_numbers = TRUE)
+
+```
+
+Let's see if this works:
+
+```{r}
+
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+
+```
+
+```{r}
+dtm <- TermDocumentMatrix(corpus5b12) 
+matrix <- as.matrix(dtm) 
+words <- sort(rowSums(matrix),decreasing=TRUE) 
+df <- data.frame(word = names(words),freq=words)
+```
+I'm going to pause here and try a different project doc!

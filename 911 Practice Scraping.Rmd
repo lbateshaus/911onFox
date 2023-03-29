@@ -1,0 +1,317 @@
+---
+title: "Anaylsis of 911onFox Tweets"
+description: |
+  A new article created using the Distill format.
+author:
+  - name: Lissie Bates-Haus, Ph.D. 
+    url: https://github.com/lbateshaus
+    affiliation: U Mass Amherst DACSS MS Student
+    affiliation_url: https://www.umass.edu/sbs/data-analytics-and-computational-social-science-program/ms
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+Load the libraries:
+
+```{r message=FALSE}
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(ggplot2)
+library(lubridate)
+library(reshape2)
+library(dplyr)
+library(syuzhet) #this is the library for sentiment detection
+library(stringr)
+library(devtools)
+install_github('ramnathv/rCharts')
+library(rCharts)
+library(quanteda)
+library(quanteda.textmodels)
+library(quanteda.textplots)
+library(quanteda.textstats)
+library(rle)
+
+```
+
+
+
+```{r}
+# COLLECT TWEETS
+#token is for rtweet
+#First run - practice getting tweets that mention taylorswift by username
+mytoken <- create_token(
+  app = "11 Fox Project", #app name here
+  consumer_key = "SRn6wms9TnrKC3Gedyq5RYiQW", #consumer key here
+  consumer_secret = "z97VPMef25X03M419hDdV1Dd6uhoKFmBvm9SkFZRZ7L2o64rWF", #consumer secret here
+  access_token = "1179567891873763330-pBptFDIRPdxrHdmPZBiYHZu3JEHB7g", #access token here
+  access_secret = "6NUZvDK9xWAtQlxnlgL19p4jHD7RE2W233q3YGHOL0Kwb") #access secret here
+
+#tweets1 <- search_tweets("911Fox", n = 5000, token=mytoken) 
+#write_as_csv(tweets1,"tweets1.csv")
+
+#this only gets us 33 tweets, many of which don't look relevant. so let's try the show's official twitter handle
+
+tweets2 <- search_tweets("911onFOX", n = 5000, token=mytoken) 
+write_as_csv(tweets2,"tweets2.csv")
+
+
+```
+Using the tag 911Fox only gets us 33 tweets, but using the show's twitter username gives us 4823 observations on 90 variables.
+
+Now, let's run a few things from digital behavior data:
+
+```{r}
+
+#Sentiment Analysis
+#for now i'm going to comment all this out until I figure out what the heck I'm doing!!
+#sentiment_tweets <- tweets2
+
+#standardize timestamps
+#I don't know why it's not recognizing the timezone? I checked the documentation and it's the right format!
+#sentiment_tweets$created_at <- ymd_hms(sentiment_tweets$created_at) 
+#sentiment_tweets$created_at <- with_tz(sentiment_tweets$created_at, tzone = "America/New_York")
+#sentiment_tweets$created_date <- as.Date(sentiment_tweets$created_at)
+
+#create a factor column for dates; used for grouping in later steps
+#sentiment_tweets$date_label <- as.factor(sentiment_tweets$created_date)
+
+#clean the text
+#sentiment_tweets$clean_text <- str_replace_all(sentiment_tweets$text, "@\\w+", "")
+
+#extract sentiments
+#Sentiment <- get_nrc_sentiment(sentiment_tweets$clean_text)
+
+#combine the data frame containing sentiment scores and the original data frame containing tweets and other Twitter metadata
+#alltweets_senti <- cbind(sentiment_tweets, Sentiment)
+
+#colnames(alltweets_senti)
+
+#aggregate the data by dates and screennames
+
+#senti_aggregated <- alltweets_senti %>% 
+#  group_by(date_label,screen_name) %>%
+#  summarise(anger = mean(anger), 
+#            anticipation = mean(anticipation), 
+#            disgust = mean(disgust), 
+#            fear = mean(fear), 
+#            joy = mean(joy), 
+#            sadness = mean(sadness), 
+#            surprise = mean(surprise), 
+#            trust = mean(trust)) %>% melt
+
+#senti_aggregated$day <- as.Date(senti_aggregated$date_label)
+
+#plot the data
+#ggplot(data = senti_aggregated[senti_aggregated$variable=="joy",], 
+#       aes(x = day, y = value, group = screen_name)) +
+#  geom_line(size = 0.5, alpha = 0.6, aes(color = screen_name)) +
+#  geom_point(size = 0) +
+#  ylim(0, NA) +
+#  theme(legend.title=element_blank(), axis.title.x = element_blank()) +
+#  ylab("Average Sentiment Score") + 
+#  ggtitle("Joy Scores for @AOC and @tedcruz") +
+#    theme(plot.title = element_text(hjust = 0.5))
+
+#library(devtools)
+#install_github('ramnathv/rCharts')
+
+#library(rCharts)
+
+#senti_aggregated$day_show <- as.character(senti_aggregated$date_label)
+
+#h1 <- hPlot(x = "day_show", y = "value", data = senti_aggregated[senti_aggregated$variable=="joy",], type = "line", group = "screen_name")
+#h1$print("chart5",include_assets = TRUE)
+
+#h1
+
+```
+
+
+```{r}
+#Commenting out this one too - this would work for fewer users?
+
+#create a corpus by individual tweets
+#total_tweets_corpus <- corpus(tweets2,docid_field = "status_id",text_field = "text")
+
+# I just want to try all these and see what they do!
+
+#corpus dfm 
+## aggregate the dataframe
+#tweets_byuser <- aggregate(text~screen_name, data = tweets2 , paste0, collapse=". ")
+## plug in new dataframe to create a new corpus
+#tweets_corpus_byuser <- corpus(tweets_byuser, docid_field = "screen_name",text_field = "text") 
+
+#this one fails?
+#tweets_corpus_byuser_dfm <- dfm(tweets_corpus_byuser, remove = stopwords("english"), remove_punct = TRUE)
+
+#this one also fails?
+#simple word frequency
+#freq <- textstat_frequency(tweets_corpus_byuser_dfm, n = 20,groups = docnames(tweets_corpus_byuser_dfm))
+
+
+#tf-idf
+#topfeatures(tweets_corpus_byuser_dfm, n =20, groups = docnames(tweets_corpus_byuser_dfm))
+
+
+# word cloud
+#set.seed(132)
+#textplot_wordcloud(tweets_corpus_byuser_dfm,comparison = TRUE)
+
+# semantic networks
+#tweets_corpus <- corpus(tweets[1:50,],docid_field = "status_id",text_field = "text")
+#dfm_try <- dfm(tweets_corpus, remove = stopwords("english"), remove_punct = TRUE)
+
+
+##create a feature co-occurrence matrix (FCM)
+#tweets_fcm <- fcm(dfm_try) 
+#extract the top 50 frequent terms from the FCM object
+#feat <- names(topfeatures(tweets_fcm, 50)) 
+#trim the old FCM object into a one that contains only the 50 frequent terms 
+#fcm_select <- fcm_select(tweets_fcm, pattern = feat)
+#set.seed(144)
+
+#textplot_network(fcm_select, min_freq = 0.8)
+```
+
+#from tutorial code at: https://rpubs.com/cosmopolitanvan/networks_497db
+
+```{r}
+
+library(graphTweets)
+library(twinetverse)
+
+extractrt <- function(df){
+  rt <- df %>% 
+    gt_edges(screen_name, retweet_screen_name) %>% # get edges
+    gt_nodes() %>% # get nodes
+    gt_collect() # collect
+  
+  return(rt)
+}
+
+```
+
+
+```{r}
+#extract retweets from pride_tweets
+
+rtnet <- extractrt(pride_tweets)
+
+```
+
+```{r}
+#Now getting the mentions 
+
+extractmt <- function(df){
+  
+  mt <- df %>% 
+    gt_edges(screen_name, mentions_screen_name) %>% # get edges
+    gt_nodes() %>% # get nodes
+    gt_collect() # collect
+  
+  return(mt)
+}
+
+mtnet <- extractmt(pride_tweets)
+
+
+```
+
+
+```{r}
+#define a function called nodes to extract node information from a network object
+
+nodes <- function(net){
+  
+  c(edges, nodes) %<-% net
+  nodes$id <- as.factor(nodes$nodes) 
+  nodes$size <- nodes$n 
+  nodes <- nodes2sg(nodes)
+  nodes <- nodes[,2:5]
+  
+  return(nodes)
+}
+
+#define a function called edges to extract edge information from a network object
+
+edges <- function(net){
+  
+  c(edges, nodes) %<-% net
+  edges$id <- seq(1, nrow(edges))
+  edges <- edges2sg(edges)
+  
+  return(edges)
+}
+
+#apply the two self-defined functions
+rtnet_nodes <- nodes(rtnet)
+rtnet_edges <- edges(rtnet)
+
+mtnet_nodes <- nodes(mtnet)
+mtnet_edges <- edges(mtnet)
+```
+
+```{r}
+class(rtnet_edges)
+class(rtnet_nodes)
+```
+
+```{r}
+library(igraph) #make sure this is installed 
+
+# use rtnet_edges as the edgelist and rtnet_nodes as the node list. Set the network type as directed
+
+rt <- graph_from_data_frame(d=rtnet_edges, vertices=rtnet_nodes, directed=T) 
+
+# see edge weight by copying the values from the size column in rtnet_edges
+
+rt <- set_edge_attr(rt, "weight", value= rtnet_edges$size)
+
+# we do the same for the mention network
+
+mt <- graph_from_data_frame(d=mtnet_edges, vertices=mtnet_nodes, directed=T) 
+mt <- set_edge_attr(mt, "weight", value= mtnet_edges$size)
+```
+
+```{r}
+class(rtnet_edges)
+```
+
+```{r}
+#Find top 5 retweeted - aka influences
+indegree_rt <- sort(degree(rt,mode = "in"),decreasing = TRUE)
+indegree_rt[1:5] #show the top 5 users ranked by in-degree
+
+```
+
+```{r}
+#Find top 5 most active in retweeting
+
+outdegree_rt <- sort(degree(rt,mode = "out"),decreasing = TRUE)
+outdegree_rt[1:5] #show the top 5 users ranked by out-degree
+
+```
+
+```{r}
+#High betweenness centrality 
+
+bt <- sort(betweenness(rt, directed=T, weights=NA), decreasing = TRUE)
+bt[1:5] #show the top 5 nodes by betweenness centrality 
+```
+
+```{r}
+#save this dataset as csv
+setwd("~/DACCS R/Digital Behavior Data")
+write.csv(pride_tweets,"pride_tweets.csv", row.names = FALSE)
+
+```
+

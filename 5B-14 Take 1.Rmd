@@ -1,0 +1,336 @@
+---
+title: "911 5b-14 TAKE 1"
+description: |
+  Practice in scraping tweets and making a word cloud using Tweets about 911 on Fox.
+author:
+  - name: Lissie Bates-Haus, Ph.D. 
+    url: https://github.com/lbateshaus
+    affiliation: U Mass Amherst DACSS MS Student
+    affiliation_url: https://www.umass.edu/sbs/data-analytics-and-computational-social-science-program/ms
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/DACCS R/Text as Data/911Fox Project")
+```
+
+Load Libraries:
+
+```{r warning=FALSE}
+
+#all necessary libraries here
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(tidytext)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+library(dplyr)
+
+#Copied over the whole doc from 5b-12
+```
+
+Please note: this code is almost entirely from my project [911 5b-12 TAKE 4](https://rpubs.com/lbateshaus/889197). New code will be cited as necessary.
+
+## 911 on Fox Tweets
+
+Load tweets from where I scraped them earlier:
+
+```{r warning=FALSE}
+setwd("~/DACCS R/Text as Data/911Fox Project")
+#Already scraped tweets so just loading in the csv
+
+tweets14 <- read_csv("tweets14.csv")
+head(tweets14)
+
+```
+
+### Separate the Data into only post-5b 14 tweets.
+
+
+```{r}
+
+#copy over tweet df to a working df
+
+workingTweets14 <- tweets14
+
+```
+
+## Narrow down to just post-airing tweets
+
+```{r}
+#Narrowing down my working df
+
+nrow(workingTweets14)
+
+#format = "%Y-%m-%d %H:%M:%s"
+# show start date march 29 12 midnight Greenwich Mean Time
+start_date <- as.POSIXct('2022-04-18 00:00:00', tz="UTC")
+
+workingTweets14 <- workingTweets14 %>% filter(created_at >= start_date)
+
+nrow(workingTweets14)
+
+```
+
+Note: MAKE SURE YOU SET THE PROPER DATE
+
+So that carved us down a bit - let's check the data.
+
+### Explore Common Words
+
+```{r}
+
+tweetWords <- workingTweets14 %>%
+  dplyr::select(text) %>%
+  unnest_tokens(word, text)
+
+head(tweetWords)
+
+```
+Attempt to plot the top 15 words:
+
+```{r}
+
+# plot the top 30 words
+tweetWords %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+
+```
+### Deal with Stop Words
+
+A majority of these seem to be stop words, so let's fix that!
+
+```{r}
+
+data("stop_words")
+# how many words do you have including the stop words?
+nrow(tweetWords)
+
+tweetsClean <- tweetWords %>%
+  anti_join(stop_words) %>%
+  filter(!word == "rt")
+
+# how many words after removing the stop words?
+nrow(tweetsClean)
+
+```
+
+Replot top 30
+
+```{r}
+
+# plot the top 30 words -- notice any issues?
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+```
+I still want to get things like https and t.co and 911onfox out of here:
+
+```{r}
+#this gets https out I think
+
+nrow(tweetsClean)
+# cleanup
+tweetsClean <- workingTweets14 %>%
+  mutate(text = gsub("\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)", 
+                           "", text)) %>% 
+  filter(created_at >= start_date ) %>% 
+  dplyr::select(text) %>%
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words) %>%
+  filter(!word == "rt") # remove all rows that contain "rt" or retweet
+nrow(tweetsClean)
+
+```
+
+Replot top 50
+
+```{r}
+
+# plot the top 30 words -- notice any issues?
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets, ")
+
+```
+From here I want to remove numbers and words that start with numbers. How do I do that?
+
+```{r}
+
+#I'm going to try gsub - that worked but left an empty cell!
+
+nrow(tweetsClean)
+
+#tweetsCloud <- tweetsClean %>% slice(-("911onfox"))  this doesn't work 
+
+#going to try subset
+
+tweetsCloud <- subset(tweetsClean, word!="911onfox" & word!="episode" & word!="911lonestar" 
+                      & word!="hewitt" & word!="i'm" & word!="it's" & word!="1" 
+                      &  word!="chim" & word!="gonna" & word!="tonight" 
+                      & word!="shes" & word!="im")       #IT LOOKS LIKE THAT WORKED!!
+
+
+
+#tweetsCloud <- subset(tweetsCloud, word!="episode")
+#tweetsCloud <- subset(tweetsCloud, word!="911lonestar")   #every time I run the word cloud I see words to take out
+#tweetsCloud <- subset(tweetsCloud, word!="hewitt") 
+#tweetsCloud <- subset(tweetsCloud, word!="im") 
+#tweetsCloud <- subset(tweetsCloud, word!="it's") 
+#tweetsCloud <- subset(tweetsCloud, word!="1") 
+#tweetsCloud <- subset(tweetsCloud, word!="chim") 
+#tweetsCloud <- subset(tweetsCloud, word!="gonna")
+#tweetsCloud <- subset(tweetsCloud, word!="tonight")
+#tweetsCloud <- subset(tweetsCloud, word!="I'm") 
+
+nrow(tweetsCloud)
+
+```
+
+Replot top 60
+
+```{r}
+
+# plot the top 60 words
+tweetsCloud %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(60) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets, ")
+
+```
+What I figured out from my last project is that I have an encoding problem here, which is why I'm still getting words that aren't meaningful. While it's probably not the correct way to manage this, I'm going to write my top 80 words to a csv, pull it up in excel and take a look at it there. Like I said, probably not ideal, but this will give me 60 words for my wordcloud.
+
+```{r}
+#Put the top 80 words into its own dataframe?
+
+top80 <- tweetsCloud %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(80) %>%
+  mutate(word = reorder(word, n))
+
+head(top80)
+
+write_as_csv(top80,"top80.csv")
+
+```
+
+From here, I'll go to excel and clean it up! Note: this is the qualitative part of the analysis
+
+Deleted from top80:
+
+i‚Äôm
+don‚Äôt
+amp
+it‚Äôs
+he‚Äôs
+that‚Äôs
+
+All of these look to me like they would have been removed with stop words?
+
+In addition, I'm going to make the call to combine the words "stop" and "sign" due to details of the episode.We'll see how the wordcloud handles it!
+
+Now to import the csv
+
+```{r}
+
+top76 <- read_csv("14_top76.csv")
+head(top76)
+
+```
+
+
+Finally, word cloud???
+
+Plot Top 76
+
+```{r}
+
+wordcloud2(data=top76, color = "random-dark")
+
+```
+I'm going to pare down a few words here:
+
+Consolidate Chris and Christoper to Christopher
+Consolidate save and saved to saved
+Removed: scene, scenes, season, watch, watching
+
+Reload the file:
+
+```{r}
+top69 <- read_csv("14_top76.csv")
+head(top69)
+
+```
+
+
+Brief attempt to change the colors:
+
+```{r}
+# or a vector of colors. vector must be same length than input data
+wordcloud2(top69, color=rep_len( c("mediumblue","darkorchid", "seagreen", "firebrick", "deeppink", "goldenrod", "forestgreen"), nrow(top69) ) )
+```
+And now to export it as a png!
+
+```{r}
+# install webshot
+library(webshot)
+webshot::install_phantomjs()
+
+# Make the graph
+my_graph <- wordcloud2(top69, color=rep_len( c("mediumblue","darkorchid", "seagreen", "firebrick", "deeppink", "goldenrod"), nrow(top69) ) )
+
+my_graph
+
+# save it in html
+library("htmlwidgets")
+saveWidget(my_graph,"tmp.html",selfcontained = F)
+
+# and in png or pdf
+webshot("tmp.html","wordcloud14a.png", delay =5, vwidth = 1000, vheight=800)
+
+```

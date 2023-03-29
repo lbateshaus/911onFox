@@ -1,0 +1,242 @@
+---
+title: "911 on Fox - working with ngrams"
+description: |
+  Practicing some Text as Data Methods
+author:
+  - name: Lissie Bates-Haus, Ph.D. 
+    url: https://github.com/lbateshaus
+    affiliation: U Mass Amherst DACSS MS Student
+    affiliation_url: https://www.umass.edu/sbs/data-analytics-and-computational-social-science-program/ms
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Set working directory for the project:
+
+```{r warning=FALSE}
+
+setwd("~/DACCS R/Text as Data/911Fox Project")
+
+#load in libraries
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(tidytext)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+library(dplyr)
+
+```
+
+### Load in the previously scraped tweets
+
+```{r}
+
+#Already scraped tweets so just loading in the csv
+tweets13 <- read_csv("tweets13.csv")
+head(tweets13)
+
+```
+
+### Create a corpus:
+
+```{r}
+
+tweet_corpus <- corpus(tweets13, docid_field = "status_id",text_field = "text")
+
+#originally tried to use screen_name as id, but it needs to be unique
+tweet_corpus
+
+```
+
+### tokens, tokenization, stop words
+
+```{r}
+
+tweet_tok <- tokens(tweet_corpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE, remove_url=TRUE)
+
+```
+
+### create ngrams
+
+```{r}
+
+# n-grams
+#create a bi-gram
+toks_ngram <- tokens_ngrams(tweet_tok, n = 2)
+head(toks_ngram)
+
+```
+
+Okay, I'm realizing that I don't actually know what I'm doing here haha
+
+Create a dataframe of just the usernames and texts:
+
+```{r}
+
+tweet_data <- data.frame(created_at = tweets13$created_at,
+                           screen_name = tweets13$screen_name,
+                         tweet_text = tweets13$text)
+head(tweet_data)
+
+```
+Cull down to only tweets post-airing of the episode:
+
+```{r}
+#Narrowing down my working df
+
+nrow(tweet_data)
+
+#format = "%Y-%m-%d %H:%M:%s"
+# show start date march 29 12 midnight Greenwich Mean Time
+start_date <- as.POSIXct('2022-04-11 00:00:00', tz="UTC")
+
+tweet_data <- tweet_data %>% filter(created_at >= start_date)
+
+nrow(tweet_data)
+
+```
+
+```{r}
+tweetWords <- tweet_data %>%
+  dplyr::select(tweet_text) %>%
+  unnest_tokens(word, tweet_text)
+
+head(tweetWords)
+```
+Plot Top 25
+
+```{r}
+
+# plot the top 25 words
+tweetWords %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(25) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+```
+Clean out stop words:
+
+```{r}
+
+data("stop_words")
+# how many words do you have including the stop words?
+nrow(tweetWords)
+
+tweetsClean <- tweetWords %>%
+  anti_join(stop_words) %>%
+  filter(!word == "rt")
+
+# how many words after removing the stop words?
+nrow(tweetsClean)
+
+```
+
+Replot Top 25:
+
+```{r}
+
+# plot the top 25 words -- what do you see now?
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(25) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+```
+
+Get out https
+
+```{r}
+#this gets https out I think
+
+nrow(tweetsClean)
+# cleanup
+tweetsClean <- tweets13 %>%
+  mutate(text = gsub("\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)", 
+                           "", text)) %>% 
+  filter(created_at >= start_date ) %>% 
+  dplyr::select(text) %>%
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words) %>%
+  filter(!word == "rt") # remove all rows that contain "rt" or retweet
+nrow(tweetsClean)
+
+```
+
+Replot top 25
+
+```{r}
+
+# plot the top 25 words -- notice any issues?
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(25) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets, ")
+
+```
+
+Now I'm going to try and create word pairs
+
+```{r}
+
+tweets13_paired <- tweets13 %>%
+  dplyr::select(text) %>%
+  mutate(tweet_text = removeWords(text, stop_words$word)) %>%
+  mutate(tweet_text = gsub("\\brt\\b|\\bRT\\b", "", text)) %>%
+  mutate(tweet_text = gsub("http://*", "", text)) %>%
+  unnest_tokens(paired_words, text, token = "ngrams", n = 2)
+
+tweets13_paired %>%
+  count(paired_words, sort = TRUE)
+
+```
+So a lot of these look to be stop words? Can I plot the pairs?
+
+```{r}
+# plot the top 25 words -- notice any issues?
+tweets13_paired %>%
+  dplyr::count(paired_words, sort = TRUE) %>%
+  top_n(25) %>%
+  mutate(paired_words = reorder(paired_words, n)) %>%
+  ggplot(aes(x = paired_words, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets, ")
+```
+

@@ -1,0 +1,130 @@
+---
+title: "911onFox 5b-12 Tweets Take 2"
+author: "Lissie Bates-Haus"
+date: "3/29/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load in necessary libraries:
+
+```{r}
+
+#all necessary libraries here
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(tidytext)
+library(plyr)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+
+```
+
+
+
+### Load in tweets I scraped earlier.
+
+```{r}
+
+library(readr)
+tweets5b12 <- read_csv("tweets5b12.csv")
+head(tweets5b12)
+
+```
+
+Creating a vector with just the tweet text
+
+```{r}
+
+#Create working dataframe:
+  
+tweets <- tweets5b12  #calling it tweets for ease of coding
+
+```
+
+### Filter down to just the dates I want
+
+From a little googling, I can see that the Twitter API returns a created-at timestamp in Greenwich Mean Time, which is 4 hours later than my local time, which means I'm looking for tweets after 12 midnight 3/29.2022 (8 pm DST in my timezone).
+
+I used the code provided by [earthdatasciene.org](https://www.earthdatascience.org/courses/earth-analytics/get-data-using-apis/text-mine-colorado-flood-tweets-science-r/) (probably not their intended application but oh well!)
+
+
+```{r}
+nrow(tweets)
+
+#format = "%Y-%m-%d %H:%M:%s"
+# show start date march 29 12 midnight Greenwich Mean Time
+
+start_date <- as.POSIXct('2022-03-29 00:00:00', tz="UTC")
+
+tweets <- tweets %>% filter(created_at >= start_date)
+nrow(tweets)
+```
+
+So next, I need to make some cleanup decisions. I want to build a wordcloud from the tweets. I want to filter out stopwords, I want to filter out urls, I want to filter out numbers.
+
+### Data Cleanup
+
+```{r}
+
+
+gsub("https\\S*", "", tweets$text) 
+gsub("@\\S*", "", tweets$text) 
+gsub("amp", "", tweets$text) 
+gsub("[\r\n]", "", tweets$text)
+gsub("onfox", "", tweets$text)
+#gsub("[[:punct:]]", "", data$text) this one failed
+
+#Create a vector with the tweet text only
+
+text <- tweets$text
+
+
+
+#This didn't work
+#Create a corpus object
+#corpus <- Corpus(VectorSource(text))
+#Clean using the tm package
+
+#myword <- c("onfox", "episode")
+
+#corpus <- corpus %>%
+#  tm_map(removeNumbers) %>%
+#  tm_map(removePunctuation) %>%
+#  tm_map(stripWhitespace) %>%
+#  tm_map(removeWords, stopwords("english"))
+         
+```
+
+
+```{r}
+
+dtm <- TermDocumentMatrix(corpus) 
+matrix <- as.matrix(dtm) 
+words <- sort(rowSums(matrix),decreasing=TRUE) 
+df <- data.frame(word = names(words),freq=words)
+head(df)
+
+```
+
+First wordcloud attempt
+
+```{r}
+
+set.seed(1234) # for reproducibility 
+wordcloud(words = df$word, freq = df$freq, min.freq = 1,           max.words=100, random.order=FALSE, rot.per=0.35,            colors=brewer.pal(8, "Dark2"))
+
+```
+

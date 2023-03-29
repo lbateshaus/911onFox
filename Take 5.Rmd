@@ -1,0 +1,104 @@
+---
+title: "911 Textx Take 5"
+author: "Lissie Bates-Haus"
+date: "3/30/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load Libraries:
+
+```{r}
+
+#all necessary libraries here
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(tidytext)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+library(dplyr)
+```
+
+Load in tweets scraped on 3/29/2022
+
+```{r}
+library(readr)
+setwd("~/DACCS R/Text as Data/911Fox Project")
+tweets5b12 <- read_csv("tweets5b12.csv")
+View(tweets5b12)
+```
+
+Create working df and filter down to the time period I want.
+
+
+```{r}
+
+#copy over tweet df to a working df
+
+tweets <- tweets5b12
+```
+
+From a little googling, I can see that the Twitter API returns a created-at timestamp in Greenwich Mean Time, which is 4 hours later than my local time, which means I'm looking for tweets after 12 midnight 3/29.2022 (8 pm DST in my timezone).
+
+I used the code provided by [earthdatasciene.org](https://www.earthdatascience.org/courses/earth-analytics/get-data-using-apis/text-mine-colorado-flood-tweets-science-r/) (probably not their intended application but oh well!)
+
+```{r}
+#Narrowing down my working df
+
+nrow(tweets)
+#format = "%Y-%m-%d %H:%M:%s"
+# show start date march 29 12 midnight Greenwich Mean Time
+start_date <- as.POSIXct('2022-03-29 00:00:00', tz="UTC")
+
+tweets <- tweets %>% filter(created_at >= start_date)
+
+nrow(tweets)
+
+```
+
+Filter down to the text words:
+
+
+```{r}
+
+tweet_words <- tweets %>%
+  dplyr::select(text) %>%
+  unnest_tokens(word, text)
+
+head(tweet_words)
+class(tweet_words)
+
+```
+
+Create a Corpus
+
+```{r}
+
+tweetsCorpus <- Corpus(VectorSource(tweet_words))
+class(tweetsCorpus)
+tweetsSummary <- summary(tweetsCorpus)
+head(tweetsSummary)
+
+```
+
+Create tokens:
+
+```{r}
+tweetsTokens <- quanteda::tokens(tweetsCorpus, 
+    remove_numbers = T)
+print(tweetsTokens)
+
+```
+

@@ -1,0 +1,344 @@
+---
+title: "Heartstopper Tweets"
+description: |
+  Tweets and Word Cloud for heartstopper on Netflix.
+author:
+  - name: Lissie Bates-Haus, Ph.D. 
+    url: https://github.com/lbateshaus
+    affiliation: U Mass Amherst DACSS MS Student
+    affiliation_url: https://www.umass.edu/sbs/data-analytics-and-computational-social-science-program/ms
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/DACCS R/Text as Data/911Fox Project")
+```
+
+Load Libraries:
+
+```{r warning=FALSE}
+
+#all necessary libraries here
+
+library(rtweet)
+library(twitteR)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(httr)
+library(tidytext)
+library(tidyverse)
+library(quanteda.textmodels)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+library(dplyr)
+
+#Copied over the whole doc from 5b-12
+```
+
+Please note: this code is almost entirely from my project [911 5b-12 TAKE 4](https://rpubs.com/lbateshaus/889197). New code will be cited as necessary.
+
+## Heartstopperon Netflix Tweets
+
+Load tweets from where I scraped them earlier:
+
+```{r warning=FALSE}
+setwd("~/DACCS R/Text as Data/911Fox Project")
+#Already scraped tweets so just loading in the csv
+
+heartstopper <- read_csv("heartstopperTweets.csv")
+head(heartstopper)
+
+```
+
+### Explore Common Words
+
+```{r}
+
+tweetWords <- heartstopper %>%
+  dplyr::select(text) %>%
+  unnest_tokens(word, text)
+
+head(tweetWords)
+
+```
+Attempt to plot the top 30 words:
+
+```{r}
+
+# plot the top 30 words
+tweetWords %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+
+```
+
+### Deal with Stop Words
+
+A majority of these seem to be stop words, so let's fix that!
+
+```{r}
+
+data("stop_words")
+# how many words do you have including the stop words?
+nrow(tweetWords)
+
+tweetsClean <- tweetWords %>%
+  anti_join(stop_words) %>%
+  filter(!word == "rt")
+
+# how many words after removing the stop words?
+nrow(tweetsClean)
+
+```
+
+Replot top 30
+
+```{r}
+
+# plot the top 30 words -- notice any issues?
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+
+```
+I still want to get things like https and t.co and 911onfox out of here:
+
+```{r}
+#this gets https out I think
+
+nrow(tweetsClean)
+# cleanup
+tweetsClean <- heartstopper %>%
+  mutate(text = gsub("\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)", 
+                           "", text)) %>% 
+  dplyr::select(text) %>%
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words) %>%
+  filter(!word == "rt") # remove all rows that contain "rt" or retweet
+nrow(tweetsClean)
+
+```
+
+Replot top 30
+
+```{r}
+
+# plot the top 30 words -- notice any issues?
+tweetsClean %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets, ")
+
+```
+From here I want to remove numbers and words that start with numbers. How do I do that?
+
+```{r}
+
+#I'm going to try gsub - that worked but left an empty cell!
+
+nrow(tweetsClean)
+
+#tweetsCloud <- tweetsClean %>% slice(-("911onfox"))  this doesn't work 
+
+#going to try subset
+
+tweetsCloud <- subset(tweetsClean, word!="heartstoppernetflix" & word!="amp") 
+
+
+#tweetsCloud <- subset(tweetsCloud, word!="episode")
+#tweetsCloud <- subset(tweetsCloud, word!="911lonestar")   #every time I run the word cloud I see words to take out
+#tweetsCloud <- subset(tweetsCloud, word!="hewitt") 
+#tweetsCloud <- subset(tweetsCloud, word!="im") 
+#tweetsCloud <- subset(tweetsCloud, word!="it's") 
+#tweetsCloud <- subset(tweetsCloud, word!="1") 
+#tweetsCloud <- subset(tweetsCloud, word!="chim") 
+#tweetsCloud <- subset(tweetsCloud, word!="gonna")
+#tweetsCloud <- subset(tweetsCloud, word!="tonight")
+#tweetsCloud <- subset(tweetsCloud, word!="I'm") 
+
+nrow(tweetsCloud)
+
+```
+
+Replot top 60
+
+```{r}
+
+# plot the top 60 words
+tweetsCloud %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(60) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets, ")
+
+```
+What I figured out from my last project is that I have an encoding problem here, which is why I'm still getting words that aren't meaningful. While it's probably not the correct way to manage this, I'm going to write my top 80 words to a csv, pull it up in excel and take a look at it there. Like I said, probably not ideal, but this will give me 60 words for my wordcloud.
+
+```{r}
+#Put the top 80 words into its own dataframe?
+
+top80_heartstopper <- tweetsCloud %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(80) %>%
+  mutate(word = reorder(word, n))
+
+head(top80_heartstopper)
+
+write_as_csv(top80_heartstopper,"top80_heartstopper.csv")
+
+```
+
+From here, I'll go to excel and clean it up! Note: this is the qualitative part of the analysis
+
+All numbers
+All contractions with encoding errors
+episode
+netflix
+netflixuk
+renewheartstopper
+
+combine "charlie spring" + "charlie" + spring" -> "charlie spring"
+combined "kit" & "connor" and "kit_connor" & "kitconnor" -> "kit connor"
+combined all joe locke variants
+all nick nelson variants
+loved + love -> love
+
+Now to import the csv
+
+```{r}
+
+top25 <- read_csv("top25_heartstopper.csv")
+head(top25)
+
+```
+
+
+Finally, word cloud???
+
+Plot Top 25
+
+```{r}
+color <- c("mediumblue","darkorchid", "seagreen", "firebrick", "deeppink", "goldenrod")
+
+
+wordcloud2(data=top25, color="random-dark", size = .75)
+
+```
+
+Hmm. Heartstopper is so much bigger - how make all the words the same size?
+
+I'm going to manually adjust that down - it will still be the most frequent term but this should make it a bit better.
+
+Now I'm going to try and get better colors:
+
+```{r}
+my_colors <- rainbow(nrow(top25), start = .73) # check ?rainbow for more infos
+#my_colors2 <- viridis(nrow(top25), start = .1)
+
+#, start = 0.1
+#shuffle = F,
+
+wordcloud2(top25, minRotation = 0, maxRotation = 0, color = my_colors, size = .75)
+
+```
+
+
+
+And now to export it as a png!
+
+```{r}
+# install webshot
+library(webshot)
+#webshot::install_phantomjs()
+
+# Make the graph
+set.seed(1231)
+my_graph <- wordcloud2(top67, color=rep_len( c("mediumblue","darkorchid", "seagreen", "firebrick", "deeppink", "goldenrod"), nrow(top67) ) )
+
+my_graph
+
+# save it in html
+library("htmlwidgets")
+saveWidget(my_graph,"tmp.html",selfcontained = F)
+
+# and in png or pdf
+webshot("tmp.html","wordcloud16.png", delay =5, vwidth = 1000, vheight=800)
+
+```
+I'm not loving this, so I'm going to pare it down to 55 and see if I like that better.
+
+Deleted:
+
+Scene
+Watching
+car
+feel
+anymore
+week
+combine mon + mother -> mom
+
+```{r}
+top55 <- read_csv("top55_16.csv")
+head(top55)
+```
+
+```{r}
+wordcloud2(top55, size = .75,  color=rep_len( c("mediumblue","mediumpurple", "darkgreen", "orchid", "deeppink", "yellowgreen"), nrow(top55) ) )
+```
+
+
+```{r}
+
+# install webshot
+library(webshot)
+webshot::install_phantomjs()
+
+# Make the graph
+my_graph <- wordcloud2(top62, size = .8, color=rep_len( c("mediumblue","darkorchid", "seagreen", "firebrick", "deeppink", "goldenrod"), nrow(top62) ) )
+
+my_graph
+
+# save it in html
+library("htmlwidgets")
+saveWidget(my_graph,"tmp.html",selfcontained = F)
+
+# and in png or pdf
+webshot("tmp.html","wordcloud16.png", delay =5, vwidth = 1000, vheight=800)
+
+```
+

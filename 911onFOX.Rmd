@@ -1,0 +1,52 @@
+---
+title: "Anaylsis of 911onFox Tweets"
+description: |
+  A new article created using the Distill format.
+author:
+  - name: Lissie Bates-Haus, Ph.D. 
+    url: https://github.com/lbateshaus
+    affiliation: U Mass Amherst DACSS MS Student
+    affiliation_url: https://www.umass.edu/sbs/data-analytics-and-computational-social-science-program/ms
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+This document is a practice project for scraping data from Twitter. The topic for this project is the television show 911 on the Fox Network. The goal of this project is to create a wordcloud of hashtags in tweets the reference 911onFOX.
+
+First, I will load in the previously-created csv file:
+
+```{r}
+
+#code was run in a different document and scrape saved to a csv.
+#tweets2 <- search_tweets("911onFOX", n = 5000, token=mytoken) 
+#write_as_csv(tweets2,"tweets2.csv")
+
+library(readr)library(rtweet)
+library(leaflet)
+library(quanteda)
+library(readr)
+library(shiny)
+library(rCharts)
+library(lubridate)
+library(highcharter)
+library(leaflet)
+
+#tweets2 <- read_csv("Text as Data/911Fox Project/tweets2.csv") #I used the import feature in RStudio
+View(tweets2)
+
+```
+
+We now have a dataframe of 4823 observations over 90 variables.
+
+A quick sort of the data shows us that the tweets were created from 2022-02-26 10:05:19 through 2022-03-04 15:54:02 (scrape was performed on 3/4/2022).
+
+```{r}
+
+
+
+```
+ 
