@@ -39,10 +39,10 @@ setwd("~/DACCS R/Text as Data/911Fox Project")
 
 mytoken <- create_token(
   app = "TaD TSwift Project", #app name here
-  consumer_key = "jsmZktV4NSA8mPKv2V3ltwrW3", #consumer key here
-  consumer_secret = "rEFDgrLdul03szTPZjJLAhvfzc29ywhmukp3KlSaLIsQhXuGGm", #consumer secret here
-  access_token = "1179567891873763330-LfrnHKrJvSsNkGQHMCbFQPyISjAdR7", #access token here
-  access_secret = "eW6riAMQQEQtdK7VryAqpYmuLXRFvgBQG6KxPno3WdmKB") #access secret here
+  consumer_key = "REMOVED", #consumer key here
+  consumer_secret = "REMOVED", #consumer secret here
+  access_token = "REMOVED", #access token here
+  access_secret = "REMOVED") #access secret here
 
 tweets15 <- search_tweets("#911onFox", n = 10000, token=mytoken, include_rts = FALSE, lang = "en") 
 
