@@ -50,10 +50,10 @@ library(rle)
 #First run - practice getting tweets that mention taylorswift by username
 mytoken <- create_token(
   app = "11 Fox Project", #app name here
-  consumer_key = "SRn6wms9TnrKC3Gedyq5RYiQW", #consumer key here
-  consumer_secret = "z97VPMef25X03M419hDdV1Dd6uhoKFmBvm9SkFZRZ7L2o64rWF", #consumer secret here
-  access_token = "1179567891873763330-pBptFDIRPdxrHdmPZBiYHZu3JEHB7g", #access token here
-  access_secret = "6NUZvDK9xWAtQlxnlgL19p4jHD7RE2W233q3YGHOL0Kwb") #access secret here
+  consumer_key = "REMOVED", #consumer key here
+  consumer_secret = "REMOVED", #consumer secret here
+  access_token = "REMOVED", #access token here
+  access_secret = "REMOVED") #access secret here
 
 #tweets1 <- search_tweets("911Fox", n = 5000, token=mytoken) 
 #write_as_csv(tweets1,"tweets1.csv")
